@@ -71,7 +71,7 @@ Diseñar, construir y automatizar mediante Infraestructura como Código una plat
 > 📌 Inserta aquí el diagrama exportado desde `DOMUSNET_Arquitectura.drawio`:
 >
 > ```markdown
-> ![Arquitectura DOMUSNET](image/arquitectura.png)
+> ![Arquitectura DOMUSNET](image/DOMUSNET_Arquitectura.drawio.png)
 > ```
 
 El diagrama editable (`DOMUSNET_Arquitectura.drawio`) es compatible con [diagrams.net](https://app.diagrams.net) y usa la librería oficial de íconos de AWS.
