@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DOMUSNET - app.domusnet.uk</title>
+<style>body{font-family:system-ui;margin:0;background:#0f172a;color:#e2e8f0}main{max-width:720px;margin:8vh auto;padding:32px}h1{color:#fff}.card{background:#1e293b;border-radius:12px;padding:24px;margin-top:16px}code{background:#020617;padding:2px 6px;border-radius:6px}.ok{color:#4ade80}</style>
+</head>
+<body>
+<main>
+<h1>DOMUSNET <span class="ok">●</span></h1>
+<p>Plataforma de almacenamiento con CDN global — <code>app.domusnet.uk</code></p>
+<div class="card">
+<h3>Estado</h3>
+<p id="status">Cargando desde CloudFront + S3 (OAC)...</p>
+<p><small>Bucket privado, TLS ACM, WAF, Lambda@Edge viewer-response</small></p>
+</div>
+<script>document.getElementById('status').textContent='OK: servido via CloudFront el '+new Date().toISOString();</script>
+</main>
+</body>
+</html>

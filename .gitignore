@@ -1,0 +1,7 @@
+.terraform/
+*.tfstate
+*.tfstate.*
+.terraform.lock.hcl
+tfplan
+**/edge-headers.zip
+.DS_Store
