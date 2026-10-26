@@ -5,9 +5,7 @@ terraform {
     region       = "us-east-1"
     encrypt      = true
     use_lockfile = true
-    profile      = "DomusnetCol"
   }
 }
-# Backend en la cuenta 130841270595 (perfil DomusnetCol).
-# Requiere que exista el bucket (pendiente: SCP del org bloquea s3:CreateBucket).
-# Para re-enganchar cuando exista: terraform init -reconfigure
+# Las credenciales se obtienen de la cadena estandar de AWS (variables de entorno,
+# rol IAM, etc.). El bucket remoto debe existir y ser accesible para cada integrante.

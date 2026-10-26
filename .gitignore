@@ -1,4 +1,5 @@
 .terraform/
+.github/
 *.tfstate
 *.tfstate.*
 .terraform.lock.hcl

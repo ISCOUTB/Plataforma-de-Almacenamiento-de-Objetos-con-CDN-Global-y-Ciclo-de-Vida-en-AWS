@@ -16,12 +16,6 @@ variable "aws_region" {
   default     = "us-east-1"
 }
 
-variable "aws_profile" {
-  description = "Perfil AWS CLI a usar (cuenta 130841270595)"
-  type        = string
-  default     = "DomusnetCol"
-}
-
 variable "domain_name" {
   description = "Subdominio servido por CloudFront (delegado desde Cloudflare)"
   type        = string
