@@ -6,3 +6,8 @@ domain_name      = "app.domusnet.uk"
 parent_domain    = "domusnet.uk"
 create_apex_zone = true
 price_class      = "PriceClass_100"
+
+cloudflare_api_token = ""   # Inyectar por variable de entorno CLOUDFLARE_API_TOKEN
+cloudflare_zone_id   = "d4c2e91d0bdd3fa9f4f101c8e489f53f"   # ID de la zona domusnet.uk en Cloudflare
+cloudflare_zone_name = "domusnet.uk"
+cloudflare_subdomain = "app"

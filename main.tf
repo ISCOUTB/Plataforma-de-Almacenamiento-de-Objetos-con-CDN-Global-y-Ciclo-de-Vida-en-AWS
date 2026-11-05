@@ -30,6 +30,16 @@ module "route53" {
   create_apex_zone = var.create_apex_zone
 }
 
+module "cloudflare_delegation" {
+  source = "./modules/cloudflare-delegation"
+
+  cloudflare_api_token = var.cloudflare_api_token
+  cloudflare_zone_id   = var.cloudflare_zone_id
+  cloudflare_zone_name = var.cloudflare_zone_name
+  subdomain_name       = var.cloudflare_subdomain
+  nameservers          = module.route53.nameservers
+}
+
 module "acm" {
   source = "./modules/acm"
 
@@ -37,6 +47,12 @@ module "acm" {
   parent_domain   = var.parent_domain
   zone_id         = module.route53.zone_id
   validation_fqdn = var.domain_name
+
+  # Espera a que los registros NS estén creados en Cloudflare
+  # antes de intentar validar el certificado por DNS público.
+  depends_on = [
+    module.cloudflare_delegation,
+  ]
 }
 
 module "lambda_edge" {

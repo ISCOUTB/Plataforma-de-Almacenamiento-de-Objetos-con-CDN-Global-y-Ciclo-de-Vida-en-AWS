@@ -34,3 +34,9 @@ output "uploads_bucket" {
 output "logs_bucket" {
   value = module.s3.logs_bucket
 }
+
+output "cloudflare_ns_records" {
+  value       = module.cloudflare_delegation.cloudflare_record_ids
+  description = "IDs de registros NS creados en Cloudflare (verificación de delegación)"
+  sensitive   = false
+}

@@ -39,3 +39,28 @@ variable "price_class" {
   type        = string
   default     = "PriceClass_100"
 }
+
+variable "cloudflare_api_token" {
+  description = "API Token de Cloudflare con permisos DNS:Edit para domusnet.uk"
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
+variable "cloudflare_zone_id" {
+  description = "ID de la zona domusnet.uk en Cloudflare"
+  type        = string
+  default     = ""
+}
+
+variable "cloudflare_zone_name" {
+  description = "Nombre de la zona raíz en Cloudflare"
+  type        = string
+  default     = "domusnet.uk"
+}
+
+variable "cloudflare_subdomain" {
+  description = "Subdominio delegado a Route 53"
+  type        = string
+  default     = "app"
+}
