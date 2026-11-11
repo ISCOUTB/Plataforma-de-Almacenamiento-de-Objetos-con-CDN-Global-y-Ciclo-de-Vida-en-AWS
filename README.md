@@ -23,6 +23,7 @@ Plataforma de hosting estático y distribución de activos digitales sobre **AWS
 - [Estructura del repositorio](#-estructura-del-repositorio)
 - [Variables de entorno](#-variables-de-entorno)
 - [Uso rápido](#-uso-rápido)
+- [Estado de implementación y despliegue](#-estado-de-implementación-y-despliegue)
 - [Riesgos y mitigación](#-riesgos-y-mitigación)
 - [Equipo](#-equipo)
 
@@ -59,7 +60,7 @@ Diseñar, construir y automatizar mediante Infraestructura como Código una plat
 - [x] Solicitar, validar y asociar certificados TLS con **ACM** para un dominio personalizado bajo HTTPS.
 - [x] Implementar ciclo de vida en S3: `Standard → Standard-IA → Glacier → eliminación`.
 - [x] Desarrollar y desplegar una función **Lambda@Edge** que inyecte cabeceras HTTP de seguridad.
-- [ ] Construir un pipeline CI/CD que publique contenido e invalide la caché del CDN. *(pendiente de automatización)*
+- [x] Definir workflows CI/CD para validar Terraform, analizar con Checkov y publicar contenido/invalidar la caché del CDN. *(configurado en código; ejecución y despliegue en AWS pendientes de verificar)*
 - [ ] Documentar arquitectura, costos y métricas de desempeño.
 
 ---
@@ -139,7 +140,7 @@ S3 assets (origen privado, sin acceso público directo)
 |---|---|
 | **Cuenta AWS** | Permisos administrativos para IAM, S3, CloudFront, Lambda, ACM, Route 53 y WAF |
 | **Dominio** | `domusnet.uk` en Cloudflare Registrar; subdominio `app` delegado a Route 53 |
-| **Terraform** | CLI `>= 1.6`; backend remoto S3 con `use_lockfile` |
+| **Terraform** | CLI `>= 1.10.5`; backend remoto S3 con `use_lockfile` |
 | **Cloudflare** | API Token con permiso `DNS:Edit` sobre la zona `domusnet.uk` |
 | **Node.js** | Desarrollo de la función Lambda@Edge |
 | **Pruebas** | [securityheaders.com](https://securityheaders.com) para validar cabeceras |
@@ -220,6 +221,16 @@ terraform apply
 ```
 
 > **Nota sobre DNS:** Tras el `apply`, Terraform crea los registros `NS` en Cloudflare para `app.domusnet.uk`. Debes verificar que la delegación esté activa antes de que ACM pueda validar el certificado por DNS. El `apply` completo incluye la creación del certificado, CloudFront, WAF, Lambda@Edge y los registros alias de Route 53.
+
+### CI/CD y despliegue automatizado
+
+La documentación detallada de los workflows, secretos, OIDC y requisitos se encuentra en [docs/CI-CD.md](./docs/CI-CD.md). Las guías paso a paso y el handoff para el responsable AWS están en [docs/GUIA-EJECUCION.md](./docs/GUIA-EJECUCION.md) y [docs/ENTREGA-COMPAÑERO-AWS.md](./docs/ENTREGA-COMPAÑERO-AWS.md).
+
+## 📌 Estado de implementación y despliegue
+
+El repositorio contiene Terraform para S3, CloudFront, ACM, Route 53, WAF, Lambda@Edge y delegación DNS de Cloudflare, además de tres workflows de GitHub Actions. Esto acredita que la configuración está definida en código, no que se haya aplicado con éxito.
+
+El estado actual de AWS, la delegación DNS, el certificado y la URL no se verificaron durante esta revisión. Consulta [docs/ESTADO-PROYECTO.md](./docs/ESTADO-PROYECTO.md) para separar lo implementado en código de lo que falta confirmar en la cuenta.
 
 ### Publicar contenido estático (despliegue manual del sitio)
 

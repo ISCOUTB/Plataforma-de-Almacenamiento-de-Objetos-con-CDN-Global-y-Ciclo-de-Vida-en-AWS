@@ -1,0 +1,63 @@
+name: Checkov Security Scan
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "**/*.tf"
+      - "**/*.tfvars"
+      - "modules/**"
+      - ".github/workflows/security-checkov.yml"
+      - ".github/workflows/*.yml"
+
+  push:
+    branches:
+      - main
+    paths:
+      - "**/*.tf"
+      - "**/*.tfvars"
+      - "modules/**"
+      - ".github/workflows/security-checkov.yml"
+      - ".github/workflows/*.yml"
+
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  security:
+    name: Analizar seguridad con Checkov
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      security-events: write
+
+    steps:
+      - name: Descargar repositorio
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+
+      - name: Ejecutar Checkov
+        id: checkov
+        continue-on-error: true
+        run: |
+          python3 -m pip install --upgrade pip
+          pip install checkov==3.4.3
+          checkov -d . --framework terraform --quiet --output sarif --output-file results.sarif || true
+
+      - name: Subir resultados SARIF a GitHub
+        if: always() && hashFiles('results.sarif') != ''
+        uses: github/codeql-action/upload-sarif@9418214df1f2c4b8128c770156c409013b07d6b9 # v3.39.3
+        with:
+          sarif_file: results.sarif
+
+      - name: Mostrar resultados de Checkov
+        if: always()
+        run: |
+          if [ -f results.sarif ]; then
+            echo "Resultados en SARIF disponibles en GitHub Security > Code scanning."
+          else
+            echo "No se generaron resultados SARIF; revisa la ejecución de Checkov."
+          fi
