@@ -3,7 +3,7 @@ name: Publicar sitio en S3 y CloudFront
 on:
   push:
     branches:
-      - main
+      - master
     paths:
       - "app/**"
       - ".github/workflows/deploy-static.yml"
@@ -16,7 +16,7 @@ permissions:
 jobs:
   deploy:
     name: Publicar sitio web
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
 
     permissions:

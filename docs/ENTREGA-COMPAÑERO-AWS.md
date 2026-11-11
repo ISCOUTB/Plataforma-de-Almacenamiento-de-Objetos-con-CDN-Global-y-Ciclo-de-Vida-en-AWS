@@ -2,7 +2,7 @@
 
 ## Objetivo y límites
 
-Preparar la cuenta y GitHub Actions para que el equipo pueda validar Terraform, aplicar infraestructura desde `main` y publicar el sitio estático. El código define esos flujos; este handoff no confirma que se hayan configurado AWS, OIDC, secrets o recursos. No almacenar credenciales en el repositorio.
+Preparar la cuenta y GitHub Actions para que el equipo pueda validar Terraform, aplicar infraestructura desde `master` y publicar el sitio estático. El código define esos flujos; este handoff no confirma que se hayan configurado AWS, OIDC, secrets o recursos. No almacenar credenciales en el repositorio.
 
 ## 1. Confirmar cuenta y región
 
@@ -10,7 +10,7 @@ Antes de crear permisos, acordar con el equipo:
 
 - AWS account ID y cuenta/ambiente objetivo.
 - Región principal `us-east-1` (CloudFront, WAF scope `CLOUDFRONT`, ACM para CloudFront y Lambda@Edge usan esa región según el código).
-- Repositorio GitHub efectivo y rama `main`; cotejarlo con `GITHUB_REPOSITORY` y no confiar solo en el URL del README.
+- Repositorio GitHub efectivo y rama predeterminada `master`; cotejarlo con `GITHUB_REPOSITORY` y no confiar solo en el URL del README.
 - Owner del dominio/zona Cloudflare y quién puede crear/cambiar sus registros.
 
 ## 2. Preparar el backend S3 (bootstrap separado)
@@ -36,7 +36,7 @@ Configurar en AWS el proveedor OIDC `token.actions.githubusercontent.com` con au
 
 En cada trust policy:
 
-- Restringir `sub` al repositorio exacto y a `refs/heads/main` para estos workflows.
+- Restringir `sub` al repositorio exacto y a `refs/heads/master` para estos workflows.
 - No habilitar `pull_request` ni forks para asumir roles con permisos AWS.
 - Confirmar que el workflow tiene `permissions: id-token: write`.
 - Aplicar mínimo privilegio y revisar la policy contra el plan y las acciones realmente requeridas.
@@ -76,7 +76,7 @@ Antes de ejecución:
 1. Ejecutar validaciones sin backend: `terraform fmt -check -recursive`, `terraform init -backend=false -input=false`, `terraform validate`, `actionlint .github/workflows/*.yml`.
 2. Verificar OIDC con un job de prueba de identidad que no modifique recursos, antes de habilitar `apply`.
 3. Probar `terraform plan` contra el backend y revisar cada cambio, cuenta, región, DNS, costos y reemplazos.
-4. En entorno/cuenta aprobados, ejecutar la aplicación con revisión del plan y autorización del responsable. El workflow actual realiza `terraform apply -auto-approve` tras un push a `main`; establecer branch protection y GitHub Environment con aprobación si la política del equipo lo exige.
+4. En entorno/cuenta aprobados, ejecutar la aplicación con revisión del plan y autorización del responsable. El workflow actual realiza `terraform apply -auto-approve` tras un push a `master`; establecer branch protection y GitHub Environment con aprobación si la política del equipo lo exige.
 5. Probar publicación controlada a S3 y la invalidación CloudFront. Tener presente que `aws s3 sync --delete` elimina objetos del bucket que no estén en `app/`.
 6. Verificar resultado en AWS: recursos, estado Terraform, logs del workflow, DNS/delegación, validación ACM, URL HTTPS, contenido, cabeceras y CloudFront invalidation.
 

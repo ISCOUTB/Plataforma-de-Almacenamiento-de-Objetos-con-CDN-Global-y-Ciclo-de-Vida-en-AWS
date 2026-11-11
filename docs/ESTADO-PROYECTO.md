@@ -25,6 +25,6 @@ Para confirmar despliegue, el responsable de cuenta debe consultar el backend y 
 - Confirmar que el bucket de estado existe, está protegido y que OIDC puede acceder al objeto/lockfile.
 - Crear/probar las trust policies y políticas de permisos mínimos de ambos roles AWS.
 - Configurar secrets requeridos en GitHub y probar los workflows en un entorno controlado.
-- Revisar si se requiere aprobación manual antes del `terraform apply` automático en pushes a `main`.
+- Revisar si se requiere aprobación manual antes del `terraform apply` automático en pushes a `master`.
 - Confirmar que Checkov debe bloquear el workflow cuando falla; actualmente se permite continuar y se ignoran fallos del comando.
 - Verificar en AWS la publicación, DNS, ACM, cabeceras y logs; no reportarlos como completados hasta tener evidencia.

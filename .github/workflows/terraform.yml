@@ -3,7 +3,7 @@ name: Terraform CI/CD
 on:
   pull_request:
     branches:
-      - main
+      - master
     paths:
       - "**/*.tf"
       - "**/*.tfvars"
@@ -13,7 +13,7 @@ on:
 
   push:
     branches:
-      - main
+      - master
     paths:
       - "**/*.tf"
       - "**/*.tfvars"
@@ -57,7 +57,7 @@ jobs:
   deploy:
     name: Plan y Apply en AWS
     needs: validate
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
 
     permissions:
