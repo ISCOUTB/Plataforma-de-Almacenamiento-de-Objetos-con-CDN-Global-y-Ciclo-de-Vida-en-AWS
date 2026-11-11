@@ -27,6 +27,11 @@ output "assets_bucket" {
   value = module.s3.assets_bucket
 }
 
+output "cloudfront_distribution_id" {
+  value       = module.cloudfront.distribution_id
+  description = "Identificador del bucket estático de CloudFront para invalidación"
+}
+
 output "uploads_bucket" {
   value = module.s3.uploads_bucket
 }
