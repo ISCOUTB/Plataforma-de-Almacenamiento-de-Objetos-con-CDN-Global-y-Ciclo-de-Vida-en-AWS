@@ -59,7 +59,7 @@ Después hace `aws s3 sync app/ s3://<assets_bucket>/ --delete` e invalida `/*` 
 
 ## 5. Seguridad y verificación posterior
 
-Checkov instala `checkov==3.4.3` y examina Terraform antes de la validación. Sus fallos bloquean los jobs posteriores. En pull requests y pushes compatibles, los resultados SARIF se publican en GitHub Code Scanning cuando se genera el archivo.
+Checkov instala `checkov==3.4.3` y examina Terraform antes de la validación. Conserva `--soft-fail`: sus findings se publican en SARIF, pero no bloquean los jobs posteriores; los errores de ejecución o de formato SARIF sí los detienen.
 
 Tras un despliegue autorizado, el responsable de AWS debe comprobar en la cuenta:
 

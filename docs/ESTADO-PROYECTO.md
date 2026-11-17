@@ -26,5 +26,5 @@ Para confirmar despliegue, el responsable de cuenta debe consultar el backend y 
 - Crear/probar las trust policies y políticas de permisos mínimos de ambos roles AWS.
 - Configurar secrets requeridos en GitHub y probar los workflows en un entorno controlado.
 - Revisar si se requiere aprobación manual antes del `terraform apply` automático en pushes a `master`.
-- Probar en GitHub Actions que Checkov bloquee la validación y el despliegue cuando falle.
+- Confirmar en GitHub Actions el comportamiento esperado de `--soft-fail` de Checkov y la publicación de SARIF.
 - Verificar en AWS la publicación, DNS, ACM, cabeceras y logs; no reportarlos como completados hasta tener evidencia.

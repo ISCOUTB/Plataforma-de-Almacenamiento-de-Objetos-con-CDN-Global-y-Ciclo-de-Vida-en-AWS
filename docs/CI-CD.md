@@ -6,7 +6,7 @@ El workflow único `.github/workflows/pipeline.yml` organiza los controles y des
 
 El workflow se inicia en cada push a `master`, en pull requests hacia `master` y manualmente con `workflow_dispatch`.
 
-1. **Checkov:** instala `checkov==3.4.3`, analiza Terraform y genera resultados SARIF. Checkov es bloqueante: si falla el análisis, no comienza la validación ni el despliegue.
+1. **Checkov:** instala `checkov==3.4.3`, analiza Terraform y genera resultados SARIF. Mantiene `--soft-fail` como en el workflow anterior: los findings se publican, pero por sí solos no bloquean la validación. Un error de ejecución o SARIF inválido sí detiene la secuencia.
 2. **Validación Terraform:** después de Checkov, ejecuta `terraform fmt -check -recursive`, `terraform init -backend=false -input=false` y `terraform validate`.
 3. **Aplicar infraestructura:** solo para pushes a `master` o ejecución manual seleccionando `master`; asume `AWS_TERRAFORM_ROLE_ARN` mediante OIDC, inicializa el backend remoto y ejecuta `terraform plan` seguido de `terraform apply -auto-approve`.
 4. **Publicar sitio:** solo comienza si la infraestructura terminó con éxito; asume `AWS_DEPLOY_ROLE_ARN` mediante OIDC, obtiene los outputs de Terraform, sincroniza `app/` con S3 e invalida `/*` en CloudFront.

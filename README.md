@@ -224,7 +224,7 @@ terraform apply
 
 ### CI/CD y despliegue automatizado
 
-El workflow `.github/workflows/pipeline.yml` se inicia con cada push a `master` y ejecuta, en orden, Checkov bloqueante, validación de Terraform, `plan/apply` de infraestructura y publicación estática en S3 con invalidación de CloudFront. Los pull requests ejecutan solo Checkov y validación; la ejecución manual despliega únicamente cuando se selecciona `master`. El despliegue usa OIDC y requiere los secrets `AWS_TERRAFORM_ROLE_ARN`, `AWS_DEPLOY_ROLE_ARN` y `CLOUDFLARE_API_TOKEN`. La ejecución y el estado actual de AWS siguen pendientes de verificar.
+El workflow `.github/workflows/pipeline.yml` se inicia con cada push a `master` y ejecuta, en orden, Checkov/SARIF, validación de Terraform, `plan/apply` de infraestructura y publicación estática en S3 con invalidación de CloudFront. Checkov conserva `--soft-fail` para findings, como en el flujo anterior. Los pull requests ejecutan solo los controles; la ejecución manual despliega únicamente cuando se selecciona `master`. El despliegue usa OIDC y requiere los secrets `AWS_TERRAFORM_ROLE_ARN`, `AWS_DEPLOY_ROLE_ARN` y `CLOUDFLARE_API_TOKEN`. La ejecución y el estado actual de AWS siguen pendientes de verificar.
 
 La documentación detallada del pipeline, secretos, OIDC y requisitos se encuentra en [docs/CI-CD.md](./docs/CI-CD.md). Las guías paso a paso y el handoff para el responsable AWS están en [docs/GUIA-EJECUCION.md](./docs/GUIA-EJECUCION.md) y [docs/ENTREGA-COMPAÑERO-AWS.md](./docs/ENTREGA-COMPAÑERO-AWS.md).
 
