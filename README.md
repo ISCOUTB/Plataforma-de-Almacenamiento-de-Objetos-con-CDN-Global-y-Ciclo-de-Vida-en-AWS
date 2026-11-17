@@ -60,7 +60,7 @@ Diseñar, construir y automatizar mediante Infraestructura como Código una plat
 - [x] Solicitar, validar y asociar certificados TLS con **ACM** para un dominio personalizado bajo HTTPS.
 - [x] Implementar ciclo de vida en S3: `Standard → Standard-IA → Glacier → eliminación`.
 - [x] Desarrollar y desplegar una función **Lambda@Edge** que inyecte cabeceras HTTP de seguridad.
-- [x] Definir workflows CI/CD para validar Terraform, analizar con Checkov y publicar contenido/invalidar la caché del CDN. *(configurado en código; ejecución y despliegue en AWS pendientes de verificar)*
+- [x] Definir un pipeline CI/CD secuencial para analizar con Checkov, validar y desplegar Terraform, publicar contenido e invalidar la caché del CDN. *(configurado en código; ejecución y despliegue en AWS pendientes de verificar)*
 - [ ] Documentar arquitectura, costos y métricas de desempeño.
 
 ---
@@ -224,11 +224,13 @@ terraform apply
 
 ### CI/CD y despliegue automatizado
 
-La documentación detallada de los workflows, secretos, OIDC y requisitos se encuentra en [docs/CI-CD.md](./docs/CI-CD.md). Las guías paso a paso y el handoff para el responsable AWS están en [docs/GUIA-EJECUCION.md](./docs/GUIA-EJECUCION.md) y [docs/ENTREGA-COMPAÑERO-AWS.md](./docs/ENTREGA-COMPAÑERO-AWS.md).
+El workflow `.github/workflows/pipeline.yml` se inicia con cada push a `master` y ejecuta, en orden, Checkov bloqueante, validación de Terraform, `plan/apply` de infraestructura y publicación estática en S3 con invalidación de CloudFront. Los pull requests ejecutan solo Checkov y validación; la ejecución manual despliega únicamente cuando se selecciona `master`. El despliegue usa OIDC y requiere los secrets `AWS_TERRAFORM_ROLE_ARN`, `AWS_DEPLOY_ROLE_ARN` y `CLOUDFLARE_API_TOKEN`. La ejecución y el estado actual de AWS siguen pendientes de verificar.
+
+La documentación detallada del pipeline, secretos, OIDC y requisitos se encuentra en [docs/CI-CD.md](./docs/CI-CD.md). Las guías paso a paso y el handoff para el responsable AWS están en [docs/GUIA-EJECUCION.md](./docs/GUIA-EJECUCION.md) y [docs/ENTREGA-COMPAÑERO-AWS.md](./docs/ENTREGA-COMPAÑERO-AWS.md).
 
 ## 📌 Estado de implementación y despliegue
 
-El repositorio contiene Terraform para S3, CloudFront, ACM, Route 53, WAF, Lambda@Edge y delegación DNS de Cloudflare, además de tres workflows de GitHub Actions. Esto acredita que la configuración está definida en código, no que se haya aplicado con éxito.
+El repositorio contiene Terraform para S3, CloudFront, ACM, Route 53, WAF, Lambda@Edge y delegación DNS de Cloudflare, además de un pipeline secuencial de GitHub Actions. Esto acredita que la configuración está definida en código, no que se haya aplicado con éxito.
 
 El estado actual de AWS, la delegación DNS, el certificado y la URL no se verificaron durante esta revisión. Consulta [docs/ESTADO-PROYECTO.md](./docs/ESTADO-PROYECTO.md) para separar lo implementado en código de lo que falta confirmar en la cuenta.
 

@@ -49,17 +49,20 @@
         <mxCell id="github" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#EEF1F4;strokeColor=#24292F;fontSize=11;fontStyle=1;arcSize=10;" value="GitHub Repository&#xa;Terraform + app estática" vertex="1">
           <mxGeometry height="60" width="140" x="180" y="675" as="geometry" />
         </mxCell>
-        <mxCell id="ghgroup" parent="1" style="fillColor=#EEF1F4;strokeColor=#24292F;verticalAlign=top;fontSize=12;fontStyle=1;rounded=1;arcSize=6;" value="GitHub Actions – Pipeline" vertex="1">
+        <mxCell id="ghgroup" parent="1" style="fillColor=#EEF1F4;strokeColor=#24292F;verticalAlign=top;fontSize=12;fontStyle=1;rounded=1;arcSize=6;" value="GitHub Actions – Pipeline secuencial" vertex="1">
           <mxGeometry height="120" width="420" x="380" y="640" as="geometry" />
         </mxCell>
-        <mxCell id="jobbuild" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#5A6472;fontSize=10;" value="build&#xa;Compila / empaqueta" vertex="1">
-          <mxGeometry height="60" width="110" x="400" y="675" as="geometry" />
+        <mxCell id="jobcheckov" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#5A6472;fontSize=10;" value="Checkov&#xa;Seguridad" vertex="1">
+          <mxGeometry height="60" width="85" x="390" y="675" as="geometry" />
         </mxCell>
-        <mxCell id="jobinfra" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#5A6472;fontSize=10;" value="deploy-infra&#xa;terraform plan/apply" vertex="1">
-          <mxGeometry height="60" width="120" x="530" y="675" as="geometry" />
+        <mxCell id="jobbuild" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#5A6472;fontSize=10;" value="Validar&#xa;Terraform" vertex="1">
+          <mxGeometry height="60" width="85" x="485" y="675" as="geometry" />
         </mxCell>
-        <mxCell id="jobpublish" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#5A6472;fontSize=10;" value="publish&#xa;aws s3 sync + invalidation" vertex="1">
-          <mxGeometry height="60" width="120" x="670" y="675" as="geometry" />
+        <mxCell id="jobinfra" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#5A6472;fontSize=10;" value="Aplicar&#xa;Terraform" vertex="1">
+          <mxGeometry height="60" width="85" x="580" y="675" as="geometry" />
+        </mxCell>
+        <mxCell id="jobpublish" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#5A6472;fontSize=10;" value="Publicar&#xa;S3 + CDN" vertex="1">
+          <mxGeometry height="60" width="85" x="675" y="675" as="geometry" />
         </mxCell>
         <mxCell id="terraform" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F1E9FB;strokeColor=#7B42BC;fontSize=11;fontStyle=1;arcSize=10;" value="Terraform (IaC)&#xa;Provisiona S3, CloudFront,&#xa;ACM, WAF, Lambda@Edge" vertex="1">
           <mxGeometry height="60" width="180" x="500" y="800" as="geometry" />
@@ -95,13 +98,16 @@
         <mxCell id="e9" edge="1" parent="1" source="dev" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;" target="github">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="e10" edge="1" parent="1" source="github" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;" target="jobbuild">
+        <mxCell id="e10" edge="1" parent="1" source="github" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;" target="jobcheckov">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="e11" edge="1" parent="1" source="jobbuild" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;" target="jobinfra">
+        <mxCell id="e11" edge="1" parent="1" source="jobcheckov" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;" target="jobbuild">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="e12" edge="1" parent="1" source="jobinfra" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;" target="jobpublish">
+        <mxCell id="e12" edge="1" parent="1" source="jobbuild" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;" target="jobinfra">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e15" edge="1" parent="1" source="jobinfra" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;" target="jobpublish">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
         <mxCell id="e13" edge="1" parent="1" source="jobinfra" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;dashed=1;strokeColor=#7B42BC;" target="terraform">

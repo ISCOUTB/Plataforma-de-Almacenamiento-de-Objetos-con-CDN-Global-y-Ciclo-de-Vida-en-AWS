@@ -31,8 +31,8 @@ El job de validación usa `terraform init -backend=false`, pero los jobs Terrafo
 
 Configurar en AWS el proveedor OIDC `token.actions.githubusercontent.com` con audience `sts.amazonaws.com`. Crear trust policies separadas para:
 
-1. Rol Terraform, consumido por `.github/workflows/terraform.yml`.
-2. Rol de publicación, consumido por `.github/workflows/deploy-static.yml`.
+1. Rol Terraform, consumido por el job `deploy-infrastructure` de `.github/workflows/pipeline.yml`.
+2. Rol de publicación, consumido por el job `publish-site` de `.github/workflows/pipeline.yml`.
 
 En cada trust policy:
 

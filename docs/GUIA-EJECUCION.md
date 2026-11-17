@@ -39,7 +39,7 @@ actionlint .github/workflows/*.yml
 
 ## 3. Despliegue de infraestructura: operación con efectos en AWS
 
-El workflow `.github/workflows/terraform.yml` contiene un job que, en push a `master`, ejecuta `terraform init`, `terraform plan` y `terraform apply -auto-approve`. Un `workflow_dispatch` solo ejecuta la validación; no activa el job de despliegue. No requiere una aprobación manual en la definición actual. Antes de habilitarlo:
+El workflow `.github/workflows/pipeline.yml` ejecuta Checkov y la validación antes del despliegue. En cada push a `master` y en una ejecución manual seleccionando `master`, inicializa el backend, ejecuta `terraform plan` y `terraform apply -auto-approve`. No requiere una aprobación manual en la definición actual. Antes de habilitarlo:
 
 1. Preparar el backend S3 definido en `backend.tf`.
 2. Configurar OIDC, trust policy, permisos IAM y secrets de GitHub.
@@ -50,7 +50,7 @@ No se ejecutó `terraform apply` ni `terraform destroy` como parte de esta docum
 
 ## 4. Publicación de contenido
 
-El workflow `deploy-static.yml` publica `app/` solo en `master`, por push con cambios bajo `app/**` o por ejecución manual seleccionando `master`. Si se despacha desde otra rama, la condición del job impide el despliegue. Obtiene:
+Después de aplicar correctamente la infraestructura, el mismo pipeline publica `app/` en S3 e invalida CloudFront. Si se despacha desde otra rama, la condición de despliegue impide aplicar infraestructura o publicar. Obtiene:
 
 - `terraform output -raw assets_bucket`
 - `terraform output -raw cloudfront_distribution_id`
@@ -59,7 +59,7 @@ Después hace `aws s3 sync app/ s3://<assets_bucket>/ --delete` e invalida `/*` 
 
 ## 5. Seguridad y verificación posterior
 
-`security-checkov.yml` instala `checkov==3.4.3`, examina Terraform y, si genera `results.sarif`, publica el resultado en GitHub Code Scanning. Actualmente el comando permite que fallos de Checkov no fallen el job (`|| true` y `continue-on-error`).
+Checkov instala `checkov==3.4.3` y examina Terraform antes de la validación. Sus fallos bloquean los jobs posteriores. En pull requests y pushes compatibles, los resultados SARIF se publican en GitHub Code Scanning cuando se genera el archivo.
 
 Tras un despliegue autorizado, el responsable de AWS debe comprobar en la cuenta:
 
