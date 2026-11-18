@@ -59,7 +59,7 @@ Diseñar, construir y automatizar mediante Infraestructura como Código una plat
 - [x] Solicitar, validar y asociar certificados TLS con **ACM** para un dominio personalizado bajo HTTPS.
 - [x] Implementar ciclo de vida en S3: `Standard → Standard-IA → Glacier → eliminación`.
 - [x] Desarrollar y desplegar una función **Lambda@Edge** que inyecte cabeceras HTTP de seguridad.
-- [ ] Construir un pipeline CI/CD que publique contenido e invalide la caché del CDN. *(pendiente de automatización)*
+- [x] Construir un pipeline CI/CD que publique contenido e invalide la caché del CDN.
 - [ ] Documentar arquitectura, costos y métricas de desempeño.
 
 ---
@@ -209,8 +209,8 @@ cd Plataforma-de-Almacenamiento-de-Objetos-con-CDN-Global-y-Ciclo-de-Vida-en-AWS
 # 2. Configurar variable de entorno de Cloudflare (obligatorio)
 $env:TF_VAR_cloudflare_api_token = "TU_TOKEN_DE_CLOUDFLARE"
 
-# 3. Inicializar Terraform
-terraform init
+# 3. Inicializar Terraform localmente (GitHub Actions usa OIDC)
+terraform init -backend-config="profile=DomusnetCol"
 
 # 4. Revisar los cambios
 terraform plan
@@ -232,6 +232,15 @@ aws s3 sync app/ s3://domusnet-assets-prod-<account_id> --delete --profile Domus
 # Invalidar caché de CloudFront
 aws cloudfront create-invalidation --distribution-id <ID_DISTRIBUCION> --paths "/*" --profile DomusnetCol
 ```
+
+### Automatización con GitHub Actions
+
+- `.github/workflows/deploy-site.yml` publica `app/` en cada push a `master` e invalida CloudFront. También permite ejecutar solo la publicación con `workflow_dispatch`.
+- `.github/workflows/terraform.yml` ejecuta `fmt`, `validate` y `plan` cuando cambian archivos de Terraform; el `apply` requiere aprobación en el entorno `infra-production`.
+- GitHub Actions usa OIDC; no se guardan claves de AWS. El secreto de repositorio `CLOUDFLARE_API_TOKEN` se entrega a Terraform como `TF_VAR_cloudflare_api_token`.
+- Variables de repositorio requeridas: `AWS_REGION`, `AWS_SITE_PUBLISH_ROLE_ARN`, `AWS_TERRAFORM_PLAN_ROLE_ARN` y `AWS_TERRAFORM_APPLY_ROLE_ARN`.
+- Después del primer `apply` aprobado, agrega `S3_ASSETS_BUCKET` y `CLOUDFRONT_DISTRIBUTION_ID` como variables de repositorio. Sus valores aparecen en el resumen del job de Terraform; hasta configurarlos, el job de publicación se omite.
+- El entorno `infra-production` debe exigir aprobación de un revisor y limitar despliegues a la rama `master`.
 
 ---
 

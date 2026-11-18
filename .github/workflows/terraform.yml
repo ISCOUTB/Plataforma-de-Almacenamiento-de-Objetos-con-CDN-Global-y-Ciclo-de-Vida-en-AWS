@@ -1,0 +1,105 @@
+name: Terraform infrastructure
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - "*.tf"
+      - "**/*.tf"
+      - "*.tfvars"
+      - "**/*.tfvars"
+      - ".terraform.lock.hcl"
+      - "lambda/**"
+      - ".github/workflows/terraform.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: domusnet-terraform-prod
+  cancel-in-progress: false
+
+env:
+  TF_IN_AUTOMATION: "true"
+  TF_INPUT: "false"
+  TF_VAR_cloudflare_api_token: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+
+jobs:
+  plan:
+    if: github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Configure AWS credentials with OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_TERRAFORM_PLAN_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+          role-session-name: domusnet-terraform-plan
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.17.0
+          terraform_wrapper: false
+
+      - name: Check formatting
+        run: terraform fmt -check -recursive
+
+      - name: Initialize Terraform
+        run: terraform init -input=false
+
+      - name: Validate Terraform
+        run: terraform validate -no-color
+
+      - name: Create Terraform plan
+        run: terraform plan -input=false -no-color -out=tfplan
+
+  apply:
+    if: github.ref == 'refs/heads/master'
+    needs: plan
+    runs-on: ubuntu-latest
+    environment:
+      name: infra-production
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Configure AWS credentials with OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_TERRAFORM_APPLY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+          role-session-name: domusnet-terraform-apply
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.17.0
+          terraform_wrapper: false
+
+      - name: Initialize Terraform
+        run: terraform init -input=false
+
+      - name: Create fresh plan after approval
+        run: terraform plan -input=false -no-color -out=tfplan
+
+      - name: Apply approved infrastructure change
+        run: terraform apply -input=false -no-color -auto-approve tfplan
+
+      - name: Show values for site deployment
+        run: |
+          {
+            echo "### Repository variables for site deployment"
+            echo "- \`S3_ASSETS_BUCKET\`: \`$(terraform output -raw assets_bucket)\`"
+            echo "- \`CLOUDFRONT_DISTRIBUTION_ID\`: \`$(terraform output -raw cloudfront_distribution_id)\`"
+          } >> "$GITHUB_STEP_SUMMARY"

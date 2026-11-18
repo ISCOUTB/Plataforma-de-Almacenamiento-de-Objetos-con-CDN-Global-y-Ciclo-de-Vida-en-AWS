@@ -3,6 +3,11 @@ output "cloudfront_domain" {
   description = "Dominio *.cloudfront.net para probar antes del DNS"
 }
 
+output "cloudfront_distribution_id" {
+  value       = module.cloudfront.distribution_id
+  description = "ID de la distribución CloudFront para invalidar caché"
+}
+
 output "app_url" {
   value       = "https://${var.domain_name}"
   description = "URL final una vez delegado el subdominio"
