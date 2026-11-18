@@ -23,7 +23,9 @@ Plataforma de hosting estático y distribución de activos digitales sobre **AWS
 - [Estructura del repositorio](#-estructura-del-repositorio)
 - [Variables de entorno](#-variables-de-entorno)
 - [Uso rápido](#-uso-rápido)
+- [Automatización con GitHub Actions](#automatización-con-github-actions)
 - [Riesgos y mitigación](#-riesgos-y-mitigación)
+- [Notas sobre el destroy](#-notas-sobre-el-destroy)
 - [Equipo](#-equipo)
 
 ---
@@ -66,7 +68,13 @@ Diseñar, construir y automatizar mediante Infraestructura como Código una plat
 
 ## 🏗️ Arquitectura
 
-> 📌 El diagrama editable (`DOMUSNET_Arquitectura.drawio`) es compatible con [diagrams.net](https://app.diagrams.net) y usa la librería oficial de íconos de AWS.
+El diagrama de arquitectura está disponible como imagen y como archivo editable compatible con [diagrams.net](https://app.diagrams.net):
+
+![Arquitectura DOMUSNET: almacenamiento de objetos con CDN global en AWS](image/DOMUSNET_Arquitectura.drawio.png)
+
+[Abrir o editar el diagrama](image/DOMUSNET_Arquitectura.drawio).
+
+> El dominio publicado por la configuración actual es `app.domusnet.uk`, delegado desde Cloudflare a Route 53.
 
 El flujo de DNS resuelve así:
 
@@ -152,6 +160,10 @@ S3 assets (origen privado, sin acceso público directo)
 .
 ├── .env.example                  # Template de variables de entorno (no subirse)
 ├── .gitignore                    # Ignora .env, .terraform, *.tfstate, etc.
+├── .github/
+│   └── workflows/
+│       ├── deploy-site.yml       # Publicación de app/ en S3 e invalidación CloudFront
+│       └── terraform.yml         # Validación, plan y apply protegido de Terraform
 ├── backend.tf                    # Backend remoto S3 (bucket domusnet-tfstate-130841270595)
 ├── main.tf                       # Orquestador de módulos
 ├── outputs.tf                    # Salidas de Terraform
@@ -175,27 +187,25 @@ S3 assets (origen privado, sin acceso público directo)
 │   ├── route53/                  # Zonas alojadas (app.domusnet.uk + apex documental)
 │   ├── s3/                       # 3 buckets (assets, uploads, logs) con lifecycle, CORS, SSE, versionado
 │   └── waf/                      # Web ACL scope CLOUDFRONT (OWASP + rate limit)
+└── image/
+    ├── DOMUSNET_Arquitectura.drawio      # Diagrama editable
+    └── DOMUSNET_Arquitectura.drawio.png  # Vista previa del diagrama
 ```
 
 ---
 
 ## 🔐 Variables de entorno
 
-El token de API de Cloudflare **no debe subirse al repositorio**. Se provee a través de variable de entorno:
+Para ejecutar Terraform localmente necesitas el perfil AWS CLI `DomusnetCol` y un token de Cloudflare con permiso `DNS:Edit` sobre la zona `domusnet.uk`. No guardes el token en el repositorio ni lo compartas en logs. En PowerShell puedes introducirlo sin que se muestre en pantalla:
 
 ```powershell
-$env:TF_VAR_cloudflare_api_token = "TU_TOKEN_DE_CLOUDFLARE"
+$env:AWS_PROFILE = "DomusnetCol"
+$env:AWS_REGION = "us-east-1"
+$secureToken = Read-Host "Token de API de Cloudflare" -AsSecureString
+$env:TF_VAR_cloudflare_api_token = [System.Net.NetworkCredential]::new("", $secureToken).Password
 ```
 
-O usando el archivo de plantilla:
-
-```powershell
-# Copiar .env.example a .env y completar:
-cp .env.example .env
-# Luego cargar las variables antes de ejecutar Terraform
-```
-
-El archivo `.env` está ignorado por `.gitignore` y nunca debe comprometerse.
+`.env.example` es solo una plantilla: Terraform no carga automáticamente un archivo `.env`. Si eliges usar uno, mantenlo ignorado por Git y carga sus valores en el entorno antes de invocar Terraform.
 
 ---
 
@@ -206,20 +216,25 @@ El archivo `.env` está ignorado por `.gitignore` y nunca debe comprometerse.
 git clone https://github.com/ISCOUTB/Plataforma-de-Almacenamiento-de-Objetos-con-CDN-Global-y-Ciclo-de-Vida-en-AWS.git
 cd Plataforma-de-Almacenamiento-de-Objetos-con-CDN-Global-y-Ciclo-de-Vida-en-AWS
 
-# 2. Configurar variable de entorno de Cloudflare (obligatorio)
-$env:TF_VAR_cloudflare_api_token = "TU_TOKEN_DE_CLOUDFLARE"
+# 2. Seleccionar el perfil AWS local y región
+$env:AWS_PROFILE = "DomusnetCol"
+$env:AWS_REGION = "us-east-1"
 
-# 3. Inicializar Terraform localmente (GitHub Actions usa OIDC)
-terraform init -backend-config="profile=DomusnetCol"
+# 3. Configurar el token de Cloudflare sin mostrarlo en pantalla
+$secureToken = Read-Host "Token de API de Cloudflare" -AsSecureString
+$env:TF_VAR_cloudflare_api_token = [System.Net.NetworkCredential]::new("", $secureToken).Password
 
-# 4. Revisar los cambios
+# 4. Inicializar Terraform localmente (GitHub Actions usa OIDC)
+terraform init -reconfigure -backend-config="profile=DomusnetCol"
+
+# 5. Revisar los cambios
 terraform plan
 
-# 5. Aplicar la infraestructura
+# 6. Aplicar la infraestructura
 terraform apply
 ```
 
-> **Nota sobre DNS:** Tras el `apply`, Terraform crea los registros `NS` en Cloudflare para `app.domusnet.uk`. Debes verificar que la delegación esté activa antes de que ACM pueda validar el certificado por DNS. El `apply` completo incluye la creación del certificado, CloudFront, WAF, Lambda@Edge y los registros alias de Route 53.
+> **Nota sobre DNS:** Terraform crea los registros `NS` en Cloudflare para `app.domusnet.uk`. La propagación DNS y la validación del certificado ACM pueden tardar. El despliegue incluye Route 53, ACM, CloudFront, WAF, Lambda@Edge y los buckets S3.
 
 ### Publicar contenido estático (despliegue manual del sitio)
 
@@ -235,12 +250,33 @@ aws cloudfront create-invalidation --distribution-id <ID_DISTRIBUCION> --paths "
 
 ### Automatización con GitHub Actions
 
-- `.github/workflows/deploy-site.yml` publica `app/` en cada push a `master` e invalida CloudFront. También permite ejecutar solo la publicación con `workflow_dispatch`.
-- `.github/workflows/terraform.yml` ejecuta `fmt`, `validate` y `plan` cuando cambian archivos de Terraform; el `apply` requiere aprobación en el entorno `infra-production`.
-- GitHub Actions usa OIDC; no se guardan claves de AWS. El secreto de repositorio `CLOUDFLARE_API_TOKEN` se entrega a Terraform como `TF_VAR_cloudflare_api_token`.
-- Variables de repositorio requeridas: `AWS_REGION`, `AWS_SITE_PUBLISH_ROLE_ARN`, `AWS_TERRAFORM_PLAN_ROLE_ARN` y `AWS_TERRAFORM_APPLY_ROLE_ARN`.
-- Después del primer `apply` aprobado, agrega `S3_ASSETS_BUCKET` y `CLOUDFRONT_DISTRIBUTION_ID` como variables de repositorio. Sus valores aparecen en el resumen del job de Terraform; hasta configurarlos, el job de publicación se omite.
-- El entorno `infra-production` debe exigir aprobación de un revisor y limitar despliegues a la rama `master`.
+La automatización se divide en dos workflows:
+
+| Workflow | Cuándo se ejecuta | Qué hace |
+|---|---|---|
+| `deploy-site.yml` | Cada push a `master` o ejecución manual (`workflow_dispatch`) | Sincroniza `app/` al bucket de assets con `aws s3 sync --delete` e invalida `/*` en CloudFront. Se omite si faltan las variables del bucket o la distribución. |
+| `terraform.yml` | Push a `master` que modifica archivos Terraform, variables de Terraform, el lockfile, `lambda/` o el propio workflow; también permite ejecución manual | Ejecuta `terraform fmt`, `init`, `validate` y `plan`. El job `apply` vuelve a crear un plan actualizado y requiere la aprobación del entorno de producción. |
+
+#### Configuración de GitHub
+
+En **Settings → Secrets and variables → Actions**, configura estas **Repository variables**:
+
+| Variable | Valor |
+|---|---|
+| `AWS_REGION` | `us-east-1` |
+| `AWS_SITE_PUBLISH_ROLE_ARN` | ARN del rol OIDC `domusnet-site-publish` |
+| `AWS_TERRAFORM_PLAN_ROLE_ARN` | ARN del rol OIDC `domusnet-terraform-plan` |
+| `AWS_TERRAFORM_APPLY_ROLE_ARN` | ARN del rol OIDC `domusnet-terraform-apply` |
+| `S3_ASSETS_BUCKET` | Nombre del bucket de assets, por ejemplo `domusnet-assets-prod-<account_id>` |
+| `CLOUDFRONT_DISTRIBUTION_ID` | ID de la distribución CloudFront |
+
+Guarda `CLOUDFLARE_API_TOKEN` como **Repository secret**. No lo pongas en variables ni únicamente en el entorno de aprobación: el job `plan` necesita leerlo y no está asociado al entorno `infra-production`.
+
+Configura el entorno **`infra-production`** para limitar despliegues a `master` y requerir la aprobación de un revisor. Terraform y la publicación se autentican en AWS mediante OIDC; no se almacenan claves AWS permanentes en GitHub. Los roles deben confiar únicamente en este repositorio y tener permisos separados para planificar, aplicar o publicar.
+
+Después del primer `apply`, copia `assets_bucket` y `cloudfront_distribution_id` del resumen del job de Terraform a las variables `S3_ASSETS_BUCKET` y `CLOUDFRONT_DISTRIBUTION_ID`. Puedes iniciar manualmente cada workflow desde **Actions → seleccionar workflow → Run workflow**, usando la rama `master`.
+
+> **Importante:** `aws s3 sync --delete` elimina del bucket los objetos que ya no están en `app/`. No uses ese mecanismo para publicar datos de usuarios.
 
 ---
 
@@ -253,6 +289,7 @@ aws cloudfront create-invalidation --distribution-id <ID_DISTRIBUCION> --paths "
 | Pérdida de datos por errores de lifecycle | Alto | Versiónado activo en buckets; pruebas en staging |
 | Lambda@Edge no se destruye | Medio | Las réplicas en edge locations impiden borrar la función inmediatamente; esperar a que CloudFront las limpie |
 | Retrasos en validación de dominio/DNS | Medio | Delegar `app.domusnet.uk` desde Cloudflare desde la semana 1 |
+| Eliminación de datos al destruir | Alto | Revisar `terraform plan -destroy` y respaldar los buckets antes de confirmar |
 
 ---
 
@@ -263,7 +300,7 @@ aws cloudfront create-invalidation --distribution-id <ID_DISTRIBUCION> --paths "
 | Integrante | Rol | Componentes a cargo |
 |---|---|---|
 | **Diego Rosales** | Cloud & IaC | S3 (buckets, políticas, lifecycle), estructura del repositorio Terraform |
-| **Sebastian Torres** | DevOps / CI-CD | Pipeline GitHub Actions, sincronización S3, invalidación de caché *(pendiente)* |
+| **Sebastian Torres** | DevOps / CI-CD | Pipeline GitHub Actions, sincronización S3, invalidación de caché |
 | **Jose Chima** | Seguridad Cloud | CloudFront, ACM, WAF, Lambda@Edge, cabeceras HTTP |
 | **Ellen Ordoñez** | QA, Costos y Documentación | CloudWatch, securityheaders.com, informes y documentación |
 
@@ -276,18 +313,47 @@ aws cloudfront create-invalidation --distribution-id <ID_DISTRIBUCION> --paths "
 | **Entrega 1** | Propuesta de proyecto, diagrama de arquitectura, roles y plan semanal | ✅ Completado |
 | **Entrega 2** | Código Terraform de S3 (buckets, políticas, cifrado, versionado, lifecycle) | ✅ Implementado |
 | **Entrega 3** | Terraform de CloudFront, ACM, Route 53, WAF, delegación Cloudflare, Lambda@Edge | ✅ Implementado |
-| **Entrega final** | Pipeline CI/CD completo, análisis de costos, reporte de cabeceras, métricas y presentación | 🔲 Pendiente |
+| **Entrega final** | Pipeline CI/CD y guía de operación implementados; análisis de costos, métricas y presentación | 🟡 En progreso |
 
 ---
 
 ## 🔧 Notas sobre el destroy
 
-Al destruir la infraestructura con `terraform destroy`, la función Lambda@Edge puede tardar varios minutos en eliminarse porque AWS mantiene réplicas en los edge locations de CloudFront mientras exista la distribución asociada. Se recomienda destruir primero el módulo `cloudfront` si el destroy completo se atora:
+`terraform destroy` elimina la infraestructura administrada por Terraform y deja el sitio fuera de servicio. Antes de empezar, espera a que terminen los workflows activos y evita hacer push a `master` durante la operación.
+
+> **Pérdida irreversible de datos:** los tres buckets tienen `force_destroy = true`. El destroy puede borrar todos sus objetos y versiones, incluidos archivos subidos y logs. Haz y verifica cualquier respaldo que necesites antes de continuar.
+
+Ejecuta estos pasos desde la raíz del repositorio en PowerShell. El perfil `DomusnetCol` debe tener permisos suficientes para eliminar todos los recursos, incluidas las zonas de Route 53; el rol de apply de GitHub Actions no está diseñado para borrar toda la infraestructura.
 
 ```powershell
-terraform destroy -var-file="terraform.tfvars" -target=module.cloudfront
-terraform destroy -var-file="terraform.tfvars"
+# Usa el perfil AWS local y la región del despliegue
+$env:AWS_PROFILE = "DomusnetCol"
+$env:AWS_REGION = "us-east-1"
+
+# Terraform también necesita el token de Cloudflare para gestionar sus registros se debe escribor a mano letra por letra 
+$secureToken = Read-Host "Token de API de Cloudflare" -AsSecureString
+$env:TF_VAR_cloudflare_api_token = [System.Net.NetworkCredential]::new("", $secureToken).Password
+
+# Conecta el backend remoto existente; no crea un estado local nuevo
+terraform init -reconfigure -backend-config="profile=DomusnetCol"
+
+# Revisa cuidadosamente todos los recursos y datos que se eliminarán
+terraform plan -destroy
+
+# Genera el plan y pide confirmación interactiva; escribe yes solo si lo aprobaste
+terraform destroy
 ```
+
+El bucket remoto de estado `domusnet-tfstate-130841270595` no forma parte del destroy y permanecerá en AWS. Consérvalo mientras necesites el estado de Terraform; eliminarlo manualmente puede impedir la recuperación o gestión de la infraestructura. Los roles IAM de GitHub también se crearon fuera de Terraform y permanecerán, pero no tienen un costo por hora.
+
+CloudFront y las réplicas de Lambda@Edge pueden tardar varios minutos en deshabilitarse y eliminarse. Si el destroy normal se bloquea por la eliminación de Lambda@Edge, espera a que CloudFront termine de propagarse. Como alternativa excepcional, ejecuta:
+
+```powershell
+terraform destroy -target=module.cloudfront
+terraform destroy
+```
+
+`-target` solo debe usarse para resolver ese bloqueo; el destroy completo final sigue siendo necesario.
 
 ---
 
