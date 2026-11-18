@@ -256,6 +256,7 @@ La automatización se divide en dos workflows:
 |---|---|---|
 | `deploy-site.yml` | Cada push a `master` o ejecución manual (`workflow_dispatch`) | Sincroniza `app/` al bucket de assets con `aws s3 sync --delete` e invalida `/*` en CloudFront. Se omite si faltan las variables del bucket o la distribución. |
 | `terraform.yml` | Push a `master` que modifica archivos Terraform, variables de Terraform, el lockfile, `lambda/` o el propio workflow; también permite ejecución manual | Ejecuta `terraform fmt`, `init`, `validate` y `plan`. El job `apply` vuelve a crear un plan actualizado y requiere la aprobación del entorno de producción. |
+| `terraform-destroy.yml` | Solo ejecución manual desde `master` | Valida la frase de confirmación, publica un plan de destroy para revisión y requiere aprobación del entorno protegido antes de destruir. |
 
 #### Configuración de GitHub
 
@@ -267,6 +268,7 @@ En **Settings → Secrets and variables → Actions**, configura estas **Reposit
 | `AWS_SITE_PUBLISH_ROLE_ARN` | ARN del rol OIDC `domusnet-site-publish` |
 | `AWS_TERRAFORM_PLAN_ROLE_ARN` | ARN del rol OIDC `domusnet-terraform-plan` |
 | `AWS_TERRAFORM_APPLY_ROLE_ARN` | ARN del rol OIDC `domusnet-terraform-apply` |
+| `AWS_TERRAFORM_DESTROY_ROLE_ARN` | `arn:aws:iam::130841270595:role/domusnet-terraform-destroy` |
 | `S3_ASSETS_BUCKET` | Nombre del bucket de assets, por ejemplo `domusnet-assets-prod-<account_id>` |
 | `CLOUDFRONT_DISTRIBUTION_ID` | ID de la distribución CloudFront |
 
@@ -275,6 +277,8 @@ Guarda `CLOUDFLARE_API_TOKEN` como **Repository secret**. No lo pongas en variab
 Configura el entorno **`infra-production`** para limitar despliegues a `master` y requerir la aprobación de un revisor. Terraform y la publicación se autentican en AWS mediante OIDC; no se almacenan claves AWS permanentes en GitHub. Los roles deben confiar únicamente en este repositorio y tener permisos separados para planificar, aplicar o publicar.
 
 Después del primer `apply`, copia `assets_bucket` y `cloudfront_distribution_id` del resumen del job de Terraform a las variables `S3_ASSETS_BUCKET` y `CLOUDFRONT_DISTRIBUTION_ID`. Puedes iniciar manualmente cada workflow desde **Actions → seleccionar workflow → Run workflow**, usando la rama `master`.
+
+El workflow de destroy también es manual y exclusivo de `master`: debes escribir `DESTROY`, revisar el plan publicado en el resumen y luego aprobar el job protegido `infra-production`. Usa un rol OIDC separado del rol de apply.
 
 > **Importante:** `aws s3 sync --delete` elimina del bucket los objetos que ya no están en `app/`. No uses ese mecanismo para publicar datos de usuarios.
 
@@ -322,6 +326,16 @@ Después del primer `apply`, copia `assets_bucket` y `cloudfront_distribution_id
 `terraform destroy` elimina la infraestructura administrada por Terraform y deja el sitio fuera de servicio. Antes de empezar, espera a que terminen los workflows activos y evita hacer push a `master` durante la operación.
 
 > **Pérdida irreversible de datos:** los tres buckets tienen `force_destroy = true`. El destroy puede borrar todos sus objetos y versiones, incluidos archivos subidos y logs. Haz y verifica cualquier respaldo que necesites antes de continuar.
+
+### Destruir desde GitHub Actions
+
+Configura la variable de repositorio `AWS_TERRAFORM_DESTROY_ROLE_ARN` con el ARN `arn:aws:iam::130841270595:role/domusnet-terraform-destroy` y asegúrate de que el secreto `CLOUDFLARE_API_TOKEN` contenga un token activo con permiso DNS:Edit sobre `domusnet.uk`.
+
+En **Actions → Destroy Terraform infrastructure → Run workflow**, selecciona `master` y escribe `DESTROY`. Revisa el plan del job `Review destroy plan`. Para continuar, un revisor debe aprobar `Destroy approved infrastructure` en el entorno `infra-production`; sin esa aprobación el destroy no se ejecuta.
+
+El workflow crea un plan nuevo después de la aprobación y aplica ese plan. Si el plan falla por credenciales de Cloudflare o AWS, no apruebes ni intentes eliminar recursos manualmente; corrige la credencial o permiso y vuelve a ejecutar.
+
+### Destruir desde PowerShell
 
 Ejecuta estos pasos desde la raíz del repositorio en PowerShell. El perfil `DomusnetCol` debe tener permisos suficientes para eliminar todos los recursos, incluidas las zonas de Route 53; el rol de apply de GitHub Actions no está diseñado para borrar toda la infraestructura.
 
