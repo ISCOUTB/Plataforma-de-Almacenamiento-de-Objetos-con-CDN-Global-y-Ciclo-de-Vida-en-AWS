@@ -1,6 +1,6 @@
 data "archive_file" "edge" {
   type        = "zip"
-  source_dir  = "${path.root}/lambda/edge-headers"
+  source_file = "${path.root}/lambda/edge-headers/index.js"
   output_path = "${path.module}/edge-headers.zip"
 }
 
