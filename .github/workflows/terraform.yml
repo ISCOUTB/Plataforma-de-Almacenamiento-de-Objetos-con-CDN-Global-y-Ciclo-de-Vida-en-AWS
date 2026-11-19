@@ -25,7 +25,6 @@ concurrency:
 env:
   TF_IN_AUTOMATION: "true"
   TF_INPUT: "false"
-  TF_VAR_cloudflare_api_token: ${{ secrets.CLOUDFLARE_API_TOKEN }}
 
 jobs:
   security:
@@ -82,6 +81,8 @@ jobs:
   plan:
     if: github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
+    env:
+      TF_VAR_cloudflare_api_token: ${{ secrets.CLOUDFLARE_API_TOKEN }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -126,6 +127,11 @@ jobs:
     if: github.ref == 'refs/heads/master'
     needs: plan
     runs-on: ubuntu-latest
+    outputs:
+      assets_bucket: ${{ steps.site-outputs.outputs.bucket }}
+      cloudfront_distribution_id: ${{ steps.site-outputs.outputs.distribution_id }}
+    env:
+      TF_VAR_cloudflare_api_token: ${{ secrets.CLOUDFLARE_API_TOKEN }}
     environment:
       name: infra-production
     steps:
@@ -156,10 +162,54 @@ jobs:
       - name: Apply approved infrastructure change
         run: terraform apply -input=false -no-color -auto-approve tfplan
 
-      - name: Show values for site deployment
+      - name: Export site deployment values
+        id: site-outputs
         run: |
+          bucket="$(terraform output -raw assets_bucket)"
+          distribution_id="$(terraform output -raw cloudfront_distribution_id)"
+          test -n "$bucket"
+          test -n "$distribution_id"
+          echo "bucket=$bucket" >> "$GITHUB_OUTPUT"
+          echo "distribution_id=$distribution_id" >> "$GITHUB_OUTPUT"
           {
-            echo "### Repository variables for site deployment"
-            echo "- \`S3_ASSETS_BUCKET\`: \`$(terraform output -raw assets_bucket)\`"
-            echo "- \`CLOUDFRONT_DISTRIBUTION_ID\`: \`$(terraform output -raw cloudfront_distribution_id)\`"
+            echo "### Static site deployment"
+            echo "- S3 bucket: \`$bucket\`"
+            echo "- CloudFront distribution: \`$distribution_id\`"
           } >> "$GITHUB_STEP_SUMMARY"
+
+  publish-site:
+    name: Publish static test site
+    if: github.ref == 'refs/heads/master'
+    needs: apply
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Configure AWS credentials with OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_SITE_PUBLISH_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+          role-session-name: domusnet-site-publish
+
+      - name: Sync static site to S3
+        env:
+          ASSETS_BUCKET: ${{ needs.apply.outputs.assets_bucket }}
+        run: |
+          test -n "$ASSETS_BUCKET"
+          aws s3 sync app/ "s3://${ASSETS_BUCKET}/" --delete --only-show-errors
+
+      - name: Invalidate CloudFront cache
+        env:
+          DISTRIBUTION_ID: ${{ needs.apply.outputs.cloudfront_distribution_id }}
+        run: |
+          test -n "$DISTRIBUTION_ID"
+          aws cloudfront create-invalidation \
+            --distribution-id "$DISTRIBUTION_ID" \
+            --paths "/*"

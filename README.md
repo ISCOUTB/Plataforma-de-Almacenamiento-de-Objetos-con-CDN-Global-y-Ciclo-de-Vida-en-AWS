@@ -250,12 +250,12 @@ aws cloudfront create-invalidation --distribution-id <ID_DISTRIBUCION> --paths "
 
 ### Automatización con GitHub Actions
 
-La automatización se divide en dos workflows:
+La automatización se divide en tres workflows:
 
 | Workflow | Cuándo se ejecuta | Qué hace |
 |---|---|---|
-| `deploy-site.yml` | Cada push a `master` o ejecución manual (`workflow_dispatch`) | Sincroniza `app/` al bucket de assets con `aws s3 sync --delete` e invalida `/*` en CloudFront. Se omite si faltan las variables del bucket o la distribución. |
-| `terraform.yml` | Push a `master` que modifica archivos Terraform, variables de Terraform, el lockfile, `lambda/` o el propio workflow; también permite ejecución manual | Ejecuta `terraform fmt`, `init`, `validate` y `plan`. El job `apply` vuelve a crear un plan actualizado y requiere la aprobación del entorno de producción. |
+| `deploy-site.yml` | Cada push a `master` o ejecución manual (`workflow_dispatch`) | Publica el sitio en S3 e invalida `/*` en CloudFront. |
+| `terraform.yml` | Push a `master` que modifica archivos Terraform, variables de Terraform, el lockfile, `lambda/` o el propio workflow; también permite ejecución manual | Ejecuta Checkov como análisis informativo independiente, y `fmt`, `init`, `validate` y `plan`. El job `apply` requiere aprobación; al terminar, publica `app/` en S3 e invalida CloudFront. |
 | `terraform-destroy.yml` | Solo ejecución manual desde `master` | Valida la frase de confirmación, publica un plan de destroy para revisión y requiere aprobación del entorno protegido antes de destruir. |
 
 #### Configuración de GitHub
@@ -269,14 +269,16 @@ En **Settings → Secrets and variables → Actions**, configura estas **Reposit
 | `AWS_TERRAFORM_PLAN_ROLE_ARN` | ARN del rol OIDC `domusnet-terraform-plan` |
 | `AWS_TERRAFORM_APPLY_ROLE_ARN` | ARN del rol OIDC `domusnet-terraform-apply` |
 | `AWS_TERRAFORM_DESTROY_ROLE_ARN` | `arn:aws:iam::130841270595:role/domusnet-terraform-destroy` |
-| `S3_ASSETS_BUCKET` | Nombre del bucket de assets, por ejemplo `domusnet-assets-prod-<account_id>` |
-| `CLOUDFRONT_DISTRIBUTION_ID` | ID de la distribución CloudFront |
+| `S3_ASSETS_BUCKET` | Nombre del bucket para el workflow independiente `deploy-site.yml` |
+| `CLOUDFRONT_DISTRIBUTION_ID` | ID de la distribución para el workflow independiente `deploy-site.yml` |
 
 Guarda `CLOUDFLARE_API_TOKEN` como **Repository secret**. No lo pongas en variables ni únicamente en el entorno de aprobación: el job `plan` necesita leerlo y no está asociado al entorno `infra-production`.
 
 Configura el entorno **`infra-production`** para limitar despliegues a `master` y requerir la aprobación de un revisor. Terraform y la publicación se autentican en AWS mediante OIDC; no se almacenan claves AWS permanentes en GitHub. Los roles deben confiar únicamente en este repositorio y tener permisos separados para planificar, aplicar o publicar.
 
-Después del primer `apply`, copia `assets_bucket` y `cloudfront_distribution_id` del resumen del job de Terraform a las variables `S3_ASSETS_BUCKET` y `CLOUDFRONT_DISTRIBUTION_ID`. Puedes iniciar manualmente cada workflow desde **Actions → seleccionar workflow → Run workflow**, usando la rama `master`.
+El job de publicación posterior a `apply` obtiene automáticamente `assets_bucket` y `cloudfront_distribution_id` de las salidas de Terraform y los pasa al siguiente job: no requiere variables adicionales para esa etapa. Reutiliza el rol existente `AWS_SITE_PUBLISH_ROLE_ARN`. Si usas por separado `deploy-site.yml`, configura además las variables `S3_ASSETS_BUCKET` y `CLOUDFRONT_DISTRIBUTION_ID`; puedes obtener sus valores en AWS CLI o en el resumen del job de Terraform. El job de publicación usa `aws s3 sync app/ s3://<bucket>/ --delete` y después crea la invalidación de CloudFront.
+
+Puedes iniciar manualmente los workflows desde **Actions → seleccionar workflow → Run workflow**, usando la rama `master`.
 
 El workflow de destroy también es manual y exclusivo de `master`: debes escribir `DESTROY`, revisar el plan publicado en el resumen y luego aprobar el job protegido `infra-production`. Usa un rol OIDC separado del rol de apply.
 
