@@ -78,15 +78,20 @@ jobs:
       - name: Initialize Terraform
         run: terraform init -input=false
 
-      - name: Create destroy plan
-        run: terraform plan -destroy -input=false -no-color -out=tfplan
+      - name: Plan CloudFront teardown first
+        run: terraform plan -destroy -target=module.cloudfront -input=false -no-color -out=tfplan-cloudfront
 
-      - name: Publish plan for review
+      - name: Plan remaining infrastructure
+        run: terraform plan -destroy -input=false -no-color -out=tfplan-full
+
+      - name: Publish both destroy plans for review
         run: |
           {
-            echo "## Resources proposed for destruction"
-            echo 'Review this plan before approving the protected destroy job.'
-            terraform show -no-color tfplan
+            echo "## Stage 1: CloudFront teardown and its dependencies"
+            terraform show -no-color tfplan-cloudfront
+            echo "## Stage 2: Remaining infrastructure"
+            terraform show -no-color tfplan-full
+            echo 'Review both plans before approving the protected destroy job.'
           } >> "$GITHUB_STEP_SUMMARY"
 
   destroy:
@@ -117,8 +122,14 @@ jobs:
       - name: Initialize Terraform
         run: terraform init -input=false
 
-      - name: Create fresh destroy plan after approval
-        run: terraform plan -destroy -input=false -no-color -out=tfplan
+      - name: Create fresh CloudFront teardown plan
+        run: terraform plan -destroy -target=module.cloudfront -input=false -no-color -out=tfplan-cloudfront
 
-      - name: Apply approved destroy plan
-        run: terraform apply -input=false -no-color -auto-approve tfplan
+      - name: Apply CloudFront teardown plan
+        run: terraform apply -input=false -no-color -auto-approve tfplan-cloudfront
+
+      - name: Create fresh plan for remaining infrastructure
+        run: terraform plan -destroy -input=false -no-color -out=tfplan-full
+
+      - name: Apply remaining destroy plan
+        run: terraform apply -input=false -no-color -auto-approve tfplan-full

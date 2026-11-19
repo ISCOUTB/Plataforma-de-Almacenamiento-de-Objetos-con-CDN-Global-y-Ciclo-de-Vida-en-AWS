@@ -331,9 +331,9 @@ El workflow de destroy también es manual y exclusivo de `master`: debes escribi
 
 Configura la variable de repositorio `AWS_TERRAFORM_DESTROY_ROLE_ARN` con el ARN `arn:aws:iam::130841270595:role/domusnet-terraform-destroy` y asegúrate de que el secreto `CLOUDFLARE_API_TOKEN` contenga un token activo con permiso DNS:Edit sobre `domusnet.uk`.
 
-En **Actions → Destroy Terraform infrastructure → Run workflow**, selecciona `master` y escribe `DESTROY`. Revisa el plan del job `Review destroy plan`. Para continuar, un revisor debe aprobar `Destroy approved infrastructure` en el entorno `infra-production`; sin esa aprobación el destroy no se ejecuta.
+En **Actions → Destroy Terraform infrastructure → Run workflow**, selecciona `master` y escribe `DESTROY`. Revisa los dos planes del job `Review destroy plan`: primero el teardown de `module.cloudfront` y sus dependencias, luego el resto de la infraestructura. Para continuar, un revisor debe aprobar `Destroy approved infrastructure` en el entorno `infra-production`; sin esa aprobación el destroy no se ejecuta.
 
-El workflow crea un plan nuevo después de la aprobación y aplica ese plan. Si el plan falla por credenciales de Cloudflare o AWS, no apruebes ni intentes eliminar recursos manualmente; corrige la credencial o permiso y vuelve a ejecutar.
+Tras la aprobación, el workflow vuelve a planificar y aplica esas dos fases en orden. La primera elimina CloudFront para permitir que AWS retire las réplicas de Lambda@Edge; la segunda elimina los recursos restantes. Si una fase falla, no intentes eliminar recursos manualmente: corrige el permiso o espera a que Lambda@Edge termine de propagarse y vuelve a ejecutar el workflow para que Terraform refresque el estado.
 
 ### Destruir desde PowerShell
 
@@ -351,23 +351,18 @@ $env:TF_VAR_cloudflare_api_token = [System.Net.NetworkCredential]::new("", $secu
 # Conecta el backend remoto existente; no crea un estado local nuevo
 terraform init -reconfigure -backend-config="profile=DomusnetCol"
 
-# Revisa cuidadosamente todos los recursos y datos que se eliminarán
-terraform plan -destroy
+# Primera fase: revisa y elimina CloudFront y sus dependencias
+terraform plan -destroy -target=module.cloudfront
+terraform destroy -target=module.cloudfront
 
-# Genera el plan y pide confirmación interactiva; escribe yes solo si lo aprobaste
+# Segunda fase: revisa y elimina todo lo que queda en el estado
+terraform plan -destroy
 terraform destroy
 ```
 
 El bucket remoto de estado `domusnet-tfstate-130841270595` no forma parte del destroy y permanecerá en AWS. Consérvalo mientras necesites el estado de Terraform; eliminarlo manualmente puede impedir la recuperación o gestión de la infraestructura. Los roles IAM de GitHub también se crearon fuera de Terraform y permanecerán, pero no tienen un costo por hora.
 
-CloudFront y las réplicas de Lambda@Edge pueden tardar varios minutos en deshabilitarse y eliminarse. Si el destroy normal se bloquea por la eliminación de Lambda@Edge, espera a que CloudFront termine de propagarse. Como alternativa excepcional, ejecuta:
-
-```powershell
-terraform destroy -target=module.cloudfront
-terraform destroy
-```
-
-`-target` solo debe usarse para resolver ese bloqueo; el destroy completo final sigue siendo necesario.
+CloudFront y las réplicas de Lambda@Edge pueden tardar varios minutos en deshabilitarse y eliminarse. Si una fase falla por propagación, espera y vuelve a ejecutar el plan de esa fase; no apliques un plan antiguo. `-target` se usa aquí deliberadamente para separar el teardown de CloudFront del destroy completo.
 
 ---
 
