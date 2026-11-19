@@ -335,6 +335,8 @@ En **Actions → Destroy Terraform infrastructure → Run workflow**, selecciona
 
 Tras la aprobación, el workflow vuelve a planificar y aplica esas dos fases en orden. La primera elimina CloudFront para permitir que AWS retire las réplicas de Lambda@Edge; la segunda elimina los recursos restantes. Si una fase falla, no intentes eliminar recursos manualmente: corrige el permiso o espera a que Lambda@Edge termine de propagarse y vuelve a ejecutar el workflow para que Terraform refresque el estado.
 
+El rol dedicado de destroy permite `route53:DeleteHostedZone` sobre zonas alojadas de la cuenta porque Route 53 genera IDs nuevos al recrearlas. Limita su uso al workflow manual protegido: revisa siempre ambos planes y exige la aprobación de `infra-production`.
+
 ### Destruir desde PowerShell
 
 Ejecuta estos pasos desde la raíz del repositorio en PowerShell. El perfil `DomusnetCol` debe tener permisos suficientes para eliminar todos los recursos, incluidas las zonas de Route 53; el rol de apply de GitHub Actions no está diseñado para borrar toda la infraestructura.
